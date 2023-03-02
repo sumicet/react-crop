@@ -48,74 +48,37 @@ export const Image = forwardRef<HTMLImageElement, React.ComponentPropsWithoutRef
         });
 
         useLayoutEffect(() => {
-            // zoom in
-            if (zoom >= 1) {
-                const newWidth = originalDimensions.width * zoom;
-                const newHeight = originalDimensions.height * zoom;
+            if (zoom < 1) return;
 
-                setDimensions({
-                    width: newWidth,
-                    height: newHeight,
+            const newWidth = originalDimensions.width * zoom;
+            const newHeight = originalDimensions.height * zoom;
+
+            setDimensions({
+                width: newWidth,
+                height: newHeight,
+            });
+
+            const imageBounds = imageRef?.current?.getBoundingClientRect();
+            const overlayBounds = overlayRef?.current?.getBoundingClientRect();
+
+            if (!imageBounds || !overlayBounds) return;
+
+            const zoomWidthDiff = newWidth - imageBounds.width;
+            const zoomHeightDiff = newHeight - imageBounds.height;
+
+            // Zoom and center
+
+            setPosition(({ x, y }) => {
+                return moveBy({
+                    x,
+                    y,
+                    imageBounds,
+                    overlayBounds,
+                    deltaX: -zoomWidthDiff / 2,
+                    deltaY: -zoomHeightDiff / 2,
                 });
-
-                const imageBounds = imageRef?.current?.getBoundingClientRect();
-                const overlayBounds = overlayRef?.current?.getBoundingClientRect();
-
-                if (!imageBounds || !overlayBounds) return;
-
-                const zoomWidthDiff = newWidth - imageBounds.width;
-                const zoomHeightDiff = newHeight - imageBounds.height;
-
-                // Zoom and center
-
-                setPosition(({ x, y }) => {
-                    return moveBy({
-                        x,
-                        y,
-                        imageBounds,
-                        overlayBounds,
-                        deltaX: -zoomWidthDiff / 2,
-                        deltaY: -zoomHeightDiff / 2,
-                    });
-                });
-
-                // setDimensions({
-                //     width: newWidth,
-                //     height: newHeight,
-                // });
-
-                // setPosition(({ x, y }) => {
-                //     // No need to guard against top left corner because it'll
-                //     // never move outside of the overlay
-
-                // const newX =
-                //     // Bottom right corner guard
-                //     imageBounds.x + newWidth < overlayBounds.x + overlayBounds.width
-                //         ? x + overlayBounds.x + overlayBounds.width - (imageBounds.x + newWidth)
-                //         : x;
-
-                // const newY =
-                //     // Bottom right corner guard
-                //     imageBounds.y + newHeight < overlayBounds.y + overlayBounds.height
-                //         ? y +
-                //           overlayBounds.y +
-                //           overlayBounds.height -
-                //           (imageBounds.y + newHeight)
-                //         : y;
-
-                //     return {
-                //         x: newX,
-                //         y: newY,
-                //     };
-                // });
-            }
-        }, [
-            zoom,
-            originalDimensions.width,
-            originalDimensions.height,
-            // setDimensions,
-            // setPosition,
-        ]);
+            });
+        }, [zoom, originalDimensions.width, originalDimensions.height, setDimensions, setPosition]);
 
         return (
             <img
