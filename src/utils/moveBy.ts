@@ -18,22 +18,20 @@ export function moveBy({
 }) {
     const newX =
         // Top left corner guard
-        imageBounds.x + deltaX > overlayBounds.x ||
-        // Bottom right corner guard
-        imageBounds.x + imageBounds.width + deltaX < overlayBounds.x + overlayBounds.width
-            ? deltaX > 0
-                ? x + overlayBounds.x - imageBounds.x
-                : x + overlayBounds.x + overlayBounds.width - (imageBounds.x + imageBounds.width)
+        imageBounds.x + deltaX > overlayBounds.x
+            ? x + overlayBounds.x - imageBounds.x
+            : // Bottom right corner guard
+            imageBounds.x + imageBounds.width + deltaX < overlayBounds.x + overlayBounds.width
+            ? x + overlayBounds.x + overlayBounds.width - (imageBounds.x + imageBounds.width)
             : x + deltaX;
 
     const newY =
         // Top left corner guard
-        imageBounds.y + deltaY > overlayBounds.y ||
-        // Bottom right corner guard
-        imageBounds.y + imageBounds.height + deltaY < overlayBounds.y + overlayBounds.height
-            ? deltaY > 0
-                ? y + overlayBounds.y - imageBounds.y
-                : y + overlayBounds.y + overlayBounds.height - (imageBounds.y + imageBounds.height)
+        imageBounds.y + deltaY > overlayBounds.y
+            ? y + overlayBounds.y - imageBounds.y
+            : // Bottom right corner guard
+            imageBounds.y + imageBounds.height + deltaY < overlayBounds.y + overlayBounds.height
+            ? y + overlayBounds.y + overlayBounds.height - (imageBounds.y + imageBounds.height)
             : y + deltaY;
 
     return { x: newX, y: newY };
