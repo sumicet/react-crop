@@ -1,15 +1,25 @@
-import { forwardRef, useCallback, useRef } from 'react';
+import { forwardRef, useCallback, useLayoutEffect, useRef } from 'react';
 import { useMove } from 'react-aria';
 import { MoveMoveEvent } from '@react-types/shared';
 import { useMergeRefs } from '../hooks';
 import { useEditor } from './Editor';
+import { getSize, moveBy } from '../utils';
 
 export const Image = forwardRef<HTMLImageElement, React.ComponentPropsWithoutRef<'img'>>(
     (props, ref) => {
         const imageRef = useRef<HTMLImageElement>(null);
         const mergedRef = useMergeRefs(ref, imageRef);
 
-        const { position, setPosition, overlayRef } = useEditor();
+        const {
+            position,
+            setPosition,
+            overlayRef,
+            dimensions,
+            setDimensions,
+            zoom,
+            originalDimensions,
+            setOriginalDimensions,
+        } = useEditor();
 
         const handleMove = useCallback(
             (event: MoveMoveEvent) => {
@@ -18,40 +28,14 @@ export const Image = forwardRef<HTMLImageElement, React.ComponentPropsWithoutRef
                 if (!imageBounds || !overlayBounds) return;
 
                 setPosition(({ x, y }) => {
-                    // Prevent image from moving outside of overlay
-
-                    const newX =
-                        // Top left corner
-                        imageBounds.x + event.deltaX > overlayBounds.x ||
-                        // Bottom right corner
-                        imageBounds.x + imageBounds.width + event.deltaX <
-                            overlayBounds.x + overlayBounds.width
-                            ? event.deltaX > 0
-                                ? x + overlayBounds.x - imageBounds.x
-                                : x +
-                                  overlayBounds.x +
-                                  overlayBounds.width -
-                                  (imageBounds.x + imageBounds.width)
-                            : x + event.deltaX;
-
-                    const newY =
-                        // Top left corner
-                        imageBounds.y + event.deltaY > overlayBounds.y ||
-                        // Bottom right corner
-                        imageBounds.y + imageBounds.height + event.deltaY <
-                            overlayBounds.y + overlayBounds.height
-                            ? event.deltaY > 0
-                                ? y + overlayBounds.y - imageBounds.y
-                                : y +
-                                  overlayBounds.y +
-                                  overlayBounds.height -
-                                  (imageBounds.y + imageBounds.height)
-                            : y + event.deltaY;
-
-                    return {
-                        x: newX,
-                        y: newY,
-                    };
+                    return moveBy({
+                        x,
+                        y,
+                        imageBounds,
+                        overlayBounds,
+                        deltaX: event.deltaX,
+                        deltaY: event.deltaY,
+                    });
                 });
             },
             [setPosition]
@@ -63,6 +47,76 @@ export const Image = forwardRef<HTMLImageElement, React.ComponentPropsWithoutRef
             onMove: handleMove,
         });
 
+        useLayoutEffect(() => {
+            // zoom in
+            if (zoom >= 1) {
+                const newWidth = originalDimensions.width * zoom;
+                const newHeight = originalDimensions.height * zoom;
+
+                setDimensions({
+                    width: newWidth,
+                    height: newHeight,
+                });
+
+                const imageBounds = imageRef?.current?.getBoundingClientRect();
+                const overlayBounds = overlayRef?.current?.getBoundingClientRect();
+
+                if (!imageBounds || !overlayBounds) return;
+
+                const zoomWidthDiff = newWidth - imageBounds.width;
+                const zoomHeightDiff = newHeight - imageBounds.height;
+
+                // Zoom and center
+
+                setPosition(({ x, y }) => {
+                    return moveBy({
+                        x,
+                        y,
+                        imageBounds,
+                        overlayBounds,
+                        deltaX: -zoomWidthDiff / 2,
+                        deltaY: -zoomHeightDiff / 2,
+                    });
+                });
+
+                // setDimensions({
+                //     width: newWidth,
+                //     height: newHeight,
+                // });
+
+                // setPosition(({ x, y }) => {
+                //     // No need to guard against top left corner because it'll
+                //     // never move outside of the overlay
+
+                // const newX =
+                //     // Bottom right corner guard
+                //     imageBounds.x + newWidth < overlayBounds.x + overlayBounds.width
+                //         ? x + overlayBounds.x + overlayBounds.width - (imageBounds.x + newWidth)
+                //         : x;
+
+                // const newY =
+                //     // Bottom right corner guard
+                //     imageBounds.y + newHeight < overlayBounds.y + overlayBounds.height
+                //         ? y +
+                //           overlayBounds.y +
+                //           overlayBounds.height -
+                //           (imageBounds.y + newHeight)
+                //         : y;
+
+                //     return {
+                //         x: newX,
+                //         y: newY,
+                //     };
+                // });
+            }
+        }, [
+            zoom,
+            originalDimensions.width,
+            originalDimensions.height,
+            // setDimensions,
+            // setPosition,
+        ]);
+
         return (
             <img
                 ref={mergedRef}
@@ -72,6 +126,8 @@ export const Image = forwardRef<HTMLImageElement, React.ComponentPropsWithoutRef
                 style={{
                     ...props.style,
                     transform: `translate(${position.x}px, ${position.y}px)`,
+                    width: dimensions.width || '100%',
+                    height: dimensions.height || '100%',
                 }}
                 onPointerDown={event => {
                     onPointerDown?.(event);
@@ -80,6 +136,15 @@ export const Image = forwardRef<HTMLImageElement, React.ComponentPropsWithoutRef
                 onKeyDown={event => {
                     onKeyDown?.(event);
                     props?.onKeyDown?.(event);
+                }}
+                onLoad={async event => {
+                    props?.onLoad?.(event);
+
+                    if (!props.src) return;
+                    const { width, height } = await getSize(props?.src);
+                    if (width === null || height === null) return;
+                    setOriginalDimensions({ width, height });
+                    setDimensions({ width, height });
                 }}
             />
         );
